@@ -1,62 +1,49 @@
-import os
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-def buscar_coordenadas (cidade:str)-> list:
-    geocoding_api_url = os.environ.get('GEOCODING_API_URL')
-    params = {
-        "name": f"{cidade}",
-        "count":1
-    }
-
-    response = requests.get(geocoding_api_url,params=params)
-    raw_data = response.json()
-    results = raw_data['results']
-
-    return results
+import logging
+from src.weather_client import  get_forecast_for_city
 
 
-def buscar_previsao(lat:float,long:float) -> dict:
-    previsao_api_url = os.environ.get('FORECAST_API_URL')
-    params_previsao = {
-        "latitude": float(lat),
-        "longitude": float(long),
-        "daily":"temperature_2m_max,temperature_2m_min,precipitation_sum",
-        "timezone":"America/Sao_Paulo",
-        'forecast_days':1
-    }
-
-    previsao_response = requests.get(previsao_api_url,params=params_previsao,timeout=10)
-    previsao_raw = previsao_response.json()
-    previsao_daily = previsao_raw['daily']
-
-    return previsao_daily
-
+logging.basicConfig(
+    level=logging.INFO,  
+    format='%(asctime)s - %(levelname)s - %(message)s', # Formato da mensagem
+    datefmt='%Y-%m-%d %H:%M:%S', # Formato da data
+    handlers=[
+        logging.FileHandler("logs/pipeline.log", mode='a', encoding='utf-8'),
+        logging.StreamHandler()            # Também exibe o log no console
+    ]
+)
 
 if __name__ == '__main__':
     
     # Definindo cidade
-    cidade = input("Digite sua cidade: ").lower()
+    while True:
+        try:    
+            menu = int(input("--------MENU--------\n\n1 - Pesquisar cidade\n0 - sair\n"))
+        except ValueError as exc:
+            logging.error(f"Opção invalida. Por favor digite uma opção do menu")
+            continue
+        
+        if menu == 1:
+            city = input("Digite sua cidade: ").lower()
 
-    # Buscando coordenadas
-    coordenadas = buscar_coordenadas(cidade)
-    long = coordenadas[0]['longitude']
-    lat = coordenadas[0]['latitude']
+            forecast = get_forecast_for_city(city)
+
+            if forecast is None:
+                logging.error("Não foi possivel obter previsão. Verifique o nome da cidade ou tente novamente mais tarde")
+                
+
+            day = forecast['time'][0]
+            min = forecast['temperature_2m_min'][0]
+            max = forecast['temperature_2m_max'][0]
 
 
-    # Buscando previsão
-    previsao = buscar_previsao(lat,long)
-    dia = previsao['time'][0]
-    min = previsao['temperature_2m_min'][0]
-    max = previsao['temperature_2m_max'][0]
+            logging.info("____Previsão do tempo____")
+            logging.info(f"Cidade: {city}")
+            logging.info(f"data: {day}")
+            logging.info(f"temperatura_min: {min}")
+            logging.info(f"temperatura_max: {max}\n\n")
 
+        elif menu == 0:
+            break
+        else:
+            logging.error("Opção inexistente. Digite 0 ou 1.")
 
-    print("\n\n____Previsão do tempo____")
-    print(f"Cidade: {cidade}")
-    print(f"data: {dia}")
-    print(f"temperatura_min: {min}")
-    print(f"temperatura_max: {max}\n\n")
-
-    
